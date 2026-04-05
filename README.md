@@ -1,5 +1,3 @@
-Siap, **Zacky**! Ini dia format mentahnya. Kamu tinggal klik tombol *copy* di pojok kanan atas kotak teks di bawah ini, lalu *paste* langsung ke dalam file `README.md` kamu.
-
 ```md
 # Proyek Analisis Data: E-Commerce Public Dataset
 
