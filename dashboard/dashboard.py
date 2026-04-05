@@ -4,85 +4,89 @@ import seaborn as sns
 import streamlit as st
 import os
 
-# Mengatur tema seaborn
+# Set tema
 sns.set(style='dark')
 
-# Menyiapkan fungsi untuk memuat data
 def load_data():
-    # Mengambil alamat folder tempat file dashboard.py ini berada
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # Menggabungkan alamat folder tersebut dengan nama file CSV
     file_path = os.path.join(current_dir, "main_data.csv")
-    
     df = pd.read_csv(file_path)
     return df
 
 all_df = load_data()
 
-# SIDEBAR
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("Zacky Maulana")
-    st.text("Proyek Analisis Data")
-    st.text("DICODING")
+    st.image("https://github.com/apple-touch-icon.png", width=50) 
+    
+    st.header("Filter Eksplorasi")
+    # Filter 1: Kategori Produk
+    category_list = ["Semua Kategori"] + sorted(all_df['product_category_name_english'].unique().tolist())
+    selected_category = st.selectbox("Pilih Kategori Produk:", category_list)
+    
+    # Filter 2: Pilih Kota (Tambahan untuk Bintang 5!)
+    city_list = ["Semua Kota"] + sorted(all_df['customer_city'].unique().tolist())
+    selected_city = st.selectbox("Pilih Kota Pelanggan:", city_list)
 
-# MAIN PAGE
-st.title("E-Commerce Dashboard")
-st.text("Dashboard sederhana ini menampilkan hasil analisis penjualan dan demografi.")
+# --- LOGIKA FILTER BERLAPIS ---
+main_df = all_df.copy()
+if selected_category != "Semua Kategori":
+    main_df = main_df[main_df['product_category_name_english'] == selected_category]
+if selected_city != "Semua Kota":
+    main_df = main_df[main_df['customer_city'] == selected_city]
+
+# --- MAIN PAGE ---
+st.title("E-Commerce Insight Dashboard 📊")
 
 # --- Bagian 1: Performa Penjualan ---
 st.header("Performa Penjualan")
-
-# Menyiapkan 2 kolom untuk metrik ringkasan
 col1, col2 = st.columns(2)
+
 with col1:
-    total_orders = all_df['order_id'].nunique()
-    st.metric("Total Pesanan", value=total_orders)
+    total_orders = main_df['order_id'].nunique()
+    st.metric("Total Pesanan", value=f"{total_orders:,}")
 with col2:
-    total_revenue = all_df['price'].sum()
-    st.metric("Total Pendapatan (BRL)", value=f"{total_revenue:,.2f}")
+    total_revenue = main_df['price'].sum()
+    st.metric("Total Pendapatan", value=f"BRL {total_revenue:,.2f}")
 
-st.subheader("Kategori Produk Terlaris & Pendapatan Tertinggi")
+st.markdown("---")
 
-# Data visualisasi produk
-top_sales = all_df.groupby('product_category_name_english').order_id.nunique().sort_values(ascending=False).head(5).reset_index()
-top_revenue = all_df.groupby('product_category_name_english').price.sum().sort_values(ascending=False).head(5).reset_index()
+# --- Bagian 2: Visualisasi Produk ---
+st.subheader("Top 5 Kategori Produk")
 
-# Membuat plot matplotlib yang sama persis seperti di notebook
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(24, 6))
-colors = ["#72BCD4"] + ["#D3D3D3"] * 4
+# Logika cerdas: Jika user pilih 'Semua', tampilkan Top 5. 
+# Jika user pilih satu kategori, tampilkan kategori tersebut dibandingkan rata-rata/total.
+if selected_category == "Semua Kategori":
+    viz_df = all_df.groupby('product_category_name_english').order_id.nunique().sort_values(ascending=False).head(5).reset_index()
+else:
+    # Menampilkan performa kategori terpilih di antara 4 kategori teratas lainnya
+    top_4_others = all_df[all_df['product_category_name_english'] != selected_category].groupby('product_category_name_english').order_id.nunique().sort_values(ascending=False).head(4).reset_index()
+    this_cat = all_df[all_df['product_category_name_english'] == selected_category].groupby('product_category_name_english').order_id.nunique().reset_index()
+    viz_df = pd.concat([this_cat, top_4_others]).sort_values(by='order_id', ascending=False)
 
-# Plot Jumlah Pesanan
-sns.barplot(x="order_id", y="product_category_name_english", data=top_sales, palette=colors, ax=ax[0], hue="product_category_name_english", legend=False)
-ax[0].set_ylabel(None)
-ax[0].set_xlabel("Jumlah Pesanan", fontsize=15)
-ax[0].set_title("Berdasarkan Jumlah Pesanan", loc="center", fontsize=18)
-ax[0].tick_params(axis='y', labelsize=12)
+fig, ax = plt.subplots(figsize=(12, 5))
+# Memberi warna berbeda pada kategori yang dipilih user
+colors = ["#72BCD4" if c == selected_category else "#D3D3D3" for c in viz_df['product_category_name_english']]
 
-# Plot Total Pendapatan
-sns.barplot(x="price", y="product_category_name_english", data=top_revenue, palette=colors, ax=ax[1], hue="product_category_name_english", legend=False)
-ax[1].set_ylabel(None)
-ax[1].set_xlabel("Total Pendapatan (BRL)", fontsize=15)
-ax[1].set_title("Berdasarkan Total Pendapatan", loc="center", fontsize=18)
-ax[1].tick_params(axis='y', labelsize=12)
+sns.barplot(x="order_id", y="product_category_name_english", data=viz_df, palette=colors, hue="product_category_name_english", legend=False, ax=ax)
+ax.set_title(f"Posisi Performa: {selected_category}", fontsize=15)
+ax.set_xlabel("Jumlah Pesanan")
+ax.set_ylabel(None)
 
-# Menampilkan grafik di streamlit
+# JAWABAN REQUEST SKALA: Jika kamu ingin skala tetap (misal max 15.000)
+# ax.set_xlim(0, 15000) 
+
 st.pyplot(fig)
 
-# --- Bagian 2: Demografi ---
+# --- Bagian 3: Demografi ---
 st.header("Demografi Pelanggan")
+st.subheader("Top 10 Kota")
+top_cities = main_df.groupby('customer_city').customer_id.nunique().sort_values(ascending=False).head(10).reset_index()
 
-st.subheader("Top 10 Kota dengan Pelanggan Terbanyak")
-top_cities = all_df.groupby('customer_city').customer_id.nunique().sort_values(ascending=False).head(10).reset_index()
-
-fig2, ax2 = plt.subplots(figsize=(12, 6))
-colors_cities = ["#72BCD4"] + ["#D3D3D3"] * 9
-sns.barplot(x="customer_id", y="customer_city", data=top_cities, palette=colors_cities, hue="customer_city", legend=False, ax=ax2)
-
-ax2.set_xlabel("Jumlah Pelanggan", fontsize=12)
-ax2.set_ylabel(None)
-ax2.tick_params(axis='y', labelsize=12)
-
+fig2, ax2 = plt.subplots(figsize=(10, 5))
+sns.barplot(x="customer_id", y="customer_city", data=top_cities, palette="Blues_r", hue="customer_city", legend=False, ax=ax2)
+ax2.set_title(f"Kota dengan Pembelian Terbanyak ({selected_category})")
 st.pyplot(fig2)
 
 st.caption("Copyright (c) Zacky Maulana 2026")
