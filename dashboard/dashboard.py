@@ -37,7 +37,7 @@ if selected_city != "Semua Kota":
     main_df = main_df[main_df['customer_city'] == selected_city]
 
 # --- MAIN PAGE ---
-st.title("E-Commerce Insight Dashboard 📊")
+st.title("E-Commerce Insight Dashboard ")
 
 # --- Bagian 1: Performa Penjualan ---
 st.header("Performa Penjualan")
